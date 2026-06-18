@@ -1,6 +1,9 @@
 import { assertEquals } from "https://deno.land/std@0.103.0/testing/asserts.ts";
 import * as fzstd from "../src/index.ts";
 
+const fromBase64 = (data: string) =>
+  Uint8Array.from(atob(data.replace(/\s+/g, "")), (ch) => ch.charCodeAt(0));
+
 Deno.test("Decompression of 'Ok' text", () => {
   const data = [
     0x28, 0xB5, 0x2F, 0xFD, 0x24, 0x02, 0x11, 0x00, 0x00, 0x4F, 0x6B, 0x64, 0x50,
@@ -120,4 +123,54 @@ Deno.test("Dictionary decompression when dictionary length equals output size", 
   ]);
   const decompressed = fzstd.decompress(compressed, undefined, dictionary);
   assertEquals(dictionary, decompressed);
+});
+
+Deno.test("Dictionary decompression when output is larger than the dictionary", () => {
+  const dictionary = new Uint8Array(64);
+  for (let i = 0; i < 64; i++) dictionary[i] = (i * 7 + 13) % 256;
+  const expected = new Uint8Array(300);
+  for (let i = 0; i < 300; i++) expected[i] = dictionary[i % 64];
+  const compressed = new Uint8Array([
+    0x28, 0xB5, 0x2F, 0xFD, 0x64, 0x2C, 0x00, 0x3D, 0x00, 0x00, 0x00, 0x01,
+    0x00, 0x29, 0x83, 0x1A, 0x80, 0x25, 0xEA, 0xEF, 0xB9
+  ]);
+  const decompressed = fzstd.decompress(compressed, undefined, dictionary);
+  assertEquals(expected, decompressed);
+});
+
+Deno.test("Dictionary history is padded to the frame window", () => {
+  const copyWithin = Uint8Array.prototype.copyWithin;
+  const copyWithinLengths: number[] = [];
+  Uint8Array.prototype.copyWithin = function(target: number, start: number, end?: number): Uint8Array {
+    copyWithinLengths.push(this.length);
+    return copyWithin.call(this, target, start, end);
+  };
+
+  try {
+    const dictionary = new Uint8Array(1024);
+    for (let i = 0; i < dictionary.length; i++) dictionary[i] = (i * 31 + 17) & 255;
+    const compressed = fromBase64(`
+      KLUv/UQAAP9EAAAAAQD9B6oFBEwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuA
+      BUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABAR
+      MAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuA
+      BUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABAR
+      MAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuA
+      BUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABAR
+      MAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuA
+      BUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABAR
+      MAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuA
+      BUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABAR
+      MAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuA
+      BUwAABARMAEA+yuABUwAABARMAEA+yuABUwAABARMAEA+yuABU0AABARMAEA+yuABUiYxv4=
+    `);
+    const decompressed = fzstd.decompress(compressed, undefined, dictionary);
+    assertEquals(65536, decompressed.length);
+    for (let i = 0; i < decompressed.length; i++) {
+      assertEquals(dictionary[i % dictionary.length], decompressed[i]);
+    }
+    assertEquals(true, copyWithinLengths.length > 0);
+    assertEquals(true, copyWithinLengths.every((length) => length == 1024));
+  } finally {
+    Uint8Array.prototype.copyWithin = copyWithin;
+  }
 });

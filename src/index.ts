@@ -139,8 +139,10 @@ const rdic = (dic: Uint8Array, st: DZstdState) => {
     st.o = new i32([b4(dic, bt), b4(dic, bt + 4), b4(dic, bt + 8)]);
     dic = dic.subarray(bt + 12);
   }
-  st.w = dic.slice();
-  st.e = dic.length;
+  const wl = Math.max(dic.length, st.u ? Math.min(st.e, dic.length + st.u) : st.e);
+  st.w = new u8(wl);
+  st.w.set(dic, wl - dic.length);
+  st.e = wl;
 };
 
 // read Zstandard frame header
