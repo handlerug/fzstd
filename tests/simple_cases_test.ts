@@ -110,9 +110,8 @@ Deno.test("Decompression of Lorem ipsum text using a dictionary", () => {
     assertEquals(expected, shouldBeLoremIpsum);
   }
 });
+
 Deno.test("Dictionary decompression when dictionary length equals output size", () => {
-  // 200-byte raw dictionary; payload is identical to it, so it compresses to a
-  // single back-reference into the dictionary and decodes back to the dict.
   const dictionary = new Uint8Array(200);
   for (let i = 0; i < 200; i++) dictionary[i] = (i * 7 + 13) % 256;
   const compressed = new Uint8Array([

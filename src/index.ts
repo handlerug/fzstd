@@ -662,9 +662,6 @@ export function decompress(dat: Uint8Array, buf?: Uint8Array, dic?: Uint8Array) 
       if (dic) rdic(dic, st);
       if (nb) {
         buf = null;
-        // st.w is the dictionary history after rdic(), not a spare output
-        // buffer; reusing it as output would alias reads with writes and
-        // corrupt the result. Only take the fast path without a dictionary.
         if (!dic && st.w.length == st.u) {
           bufs.push(buf = st.w);
           ol += st.u;
