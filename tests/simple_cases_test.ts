@@ -121,3 +121,16 @@ Deno.test("Dictionary decompression when dictionary length equals output size", 
   const decompressed = fzstd.decompress(compressed, undefined, dictionary);
   assertEquals(dictionary, decompressed);
 });
+
+Deno.test("Dictionary decompression when output is larger than the dictionary", () => {
+  const dictionary = new Uint8Array(64);
+  for (let i = 0; i < 64; i++) dictionary[i] = (i * 7 + 13) % 256;
+  const expected = new Uint8Array(300);
+  for (let i = 0; i < 300; i++) expected[i] = dictionary[i % 64];
+  const compressed = new Uint8Array([
+    0x28, 0xB5, 0x2F, 0xFD, 0x64, 0x2C, 0x00, 0x3D, 0x00, 0x00, 0x00, 0x01,
+    0x00, 0x29, 0x83, 0x1A, 0x80, 0x25, 0xEA, 0xEF, 0xB9
+  ]);
+  const decompressed = fzstd.decompress(compressed, undefined, dictionary);
+  assertEquals(expected, decompressed);
+});
